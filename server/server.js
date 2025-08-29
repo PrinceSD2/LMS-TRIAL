@@ -7,6 +7,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const morgan = require('morgan');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 require('dotenv').config();
 
 // Import routes
@@ -23,7 +24,7 @@ const server = http.createServer(app);
 const dev = process.env.NODE_ENV !== 'production';
 const io = socketIo(server, {
   cors: {
-    origin: dev ? true : ['https://your-frontend-domain.com'],
+    origin: dev ? true : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
     credentials: true
   }
 });
@@ -31,7 +32,7 @@ const io = socketIo(server, {
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: dev ? true : ['https://your-frontend-domain.com'],
+  origin: dev ? true : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
   credentials: true
 }));
 
@@ -71,6 +72,19 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/organizations', organizationRoutes);
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from React build
+  app.use(express.static(path.join(__dirname, '../client/build')));
+  
+  // Catch all handler: send back React's index.html file for any non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+    }
+  });
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
