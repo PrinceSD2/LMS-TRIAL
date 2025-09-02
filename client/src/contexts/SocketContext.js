@@ -12,10 +12,12 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Initialize socket connection
-  socket.current = io(apiBaseURL, {
-        transports: ['websocket'],
-        upgrade: false,
+      // Initialize socket connection with better error handling
+      socket.current = io(apiBaseURL, {
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        timeout: 10000,
+        forceNew: true,
         auth: {
           userId: user._id,
           userRole: user.role
@@ -28,11 +30,15 @@ export const SocketProvider = ({ children }) => {
 
       // Socket event listeners
       socket.current.on('connect', () => {
-        console.log('Connected to server');
+        console.log('Socket connected to server');
       });
 
-      socket.current.on('disconnect', () => {
-        console.log('Disconnected from server');
+      socket.current.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+      });
+
+      socket.current.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
       });
 
       // Lead events

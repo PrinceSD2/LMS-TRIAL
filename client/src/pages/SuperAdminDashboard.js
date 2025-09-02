@@ -173,7 +173,15 @@ const SuperAdminDashboard = () => {
     } finally {
       setLeadsLoading(false);
     }
-  }, [leadFilters]);
+  }, [
+    leadFilters.search,
+    leadFilters.leadId,
+    leadFilters.startDate,
+    leadFilters.endDate,
+    leadFilters.status,
+    leadFilters.category,
+    leadFilters.assignedTo
+  ]);
 
   const handleCreateLead = async (e) => {
     e.preventDefault();

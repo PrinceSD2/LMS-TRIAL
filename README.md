@@ -30,24 +30,81 @@ A full-stack web application for managing leads with role-based access control a
 
 ## Setup Instructions
 
-### 1. Clone and Install Dependencies
+### Quick Start (Recommended)
 
 ```bash
-# Install backend dependencies
+# Option 1: Use setup script
+setup.bat
+
+# Option 2: Use development start script
+start-dev.bat
+
+# Option 3: Use npm script
+npm run dev
+```
+
+### Manual Setup
+
+#### 1. Install Dependencies
+
+```bash
+# Install all dependencies
+npm run install-all
+
+# Or install individually:
+cd server && npm install
+cd ../client && npm install
+```
+
+#### 2. Environment Configuration
+
+**Server (.env)**:
+```
+MONGODB_URI=mongodb+srv://rglms10:RGLMS123@lmsdatabase.jo25hav.mongodb.net/LMSdata
+JWT_SECRET=LMSSECRETKEY
+PORT=5000
+NODE_ENV=development
+```
+
+**Client (.env)**:
+```
+REACT_APP_API_URL=http://localhost:5000
+```
+
+#### 3. Database Setup
+
+```bash
+# Seed database with admin users
 cd server
-npm install
-
-# Install frontend dependencies  
-cd ../client
-npm install
+npm run seed
 ```
 
-### 2. Environment Configuration
+#### 4. Start Development Servers
 
-Create a `.env` file in the server directory with the following variables:
+```bash
+# Start both frontend and backend
+npm run dev
 
+# Or start individually:
+npm run server  # Backend only
+npm run client  # Frontend only
 ```
-MONGODB_URI=your_mongodb_atlas_connection_string
+
+## Development URLs
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:5000/api
+- **API Documentation**: See API_DOCS.md
+
+## Default Login Credentials
+
+**SuperAdmin:**
+- Email: vishal@lms.com
+- Password: @dm!n123
+
+**SuperAdmin 2:**
+- Email: jitin@lms.com  
+- Password: @dm!n123
 JWT_SECRET=your_jwt_secret_key
 PORT=5000
 NODE_ENV=development

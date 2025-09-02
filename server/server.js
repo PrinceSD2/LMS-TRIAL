@@ -46,7 +46,7 @@ app.use(helmet({
   },
 }));
 app.use(cors({
-  origin: dev ? true : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
+  origin: dev ? ['http://localhost:3000', 'http://127.0.0.1:3000'] : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
   credentials: true
 }));
 

@@ -18,13 +18,13 @@ const Login = () => {
   // Get redirect path based on user role
   const getRedirectPath = (userRole) => {
     switch (userRole) {
-      case 'SuperAdmin':
+      case 'superadmin':
         return '/super-admin-dashboard';
-      case 'Admin':
+      case 'admin':
         return '/admin-dashboard';
-      case 'Agent1':
+      case 'agent1':
         return '/agent1-dashboard';
-      case 'Agent2':
+      case 'agent2':
         return '/agent2-dashboard';
       default:
         return '/dashboard';
@@ -167,7 +167,7 @@ const Login = () => {
               Demo Account:
             </div>
             <div className="mt-2 space-y-1 text-xs text-gray-500">
-              <div>SuperAdmin: superadmin@lms.com / SuperAdmin123!</div>
+              <div>SuperAdmin: vishal@lms.com / @dm!n123</div>
               <div className="text-red-500">Note: SuperAdmin can create organizations and users</div>
             </div>
           </div>
