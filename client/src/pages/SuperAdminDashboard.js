@@ -40,7 +40,9 @@ const SuperAdminDashboard = () => {
     endDate: '',
     status: '',
     category: '',
-    assignedTo: ''
+    qualificationStatus: '',
+    assignedTo: '',
+    duplicateStatus: ''
   });
 
   // Lead form data for create/edit
@@ -162,7 +164,9 @@ const SuperAdminDashboard = () => {
       if (leadFilters.endDate) params.append('endDate', leadFilters.endDate);
       if (leadFilters.status) params.append('status', leadFilters.status);
       if (leadFilters.category) params.append('category', leadFilters.category);
+      if (leadFilters.qualificationStatus) params.append('qualificationStatus', leadFilters.qualificationStatus);
       if (leadFilters.assignedTo) params.append('assignedTo', leadFilters.assignedTo);
+      if (leadFilters.duplicateStatus) params.append('duplicateStatus', leadFilters.duplicateStatus);
 
       const response = await axios.get(`/api/leads?${params.toString()}`);
       setLeads(response.data?.data?.leads || []);
@@ -180,7 +184,9 @@ const SuperAdminDashboard = () => {
     leadFilters.endDate,
     leadFilters.status,
     leadFilters.category,
-    leadFilters.assignedTo
+    leadFilters.qualificationStatus,
+    leadFilters.assignedTo,
+    leadFilters.duplicateStatus
   ]);
 
   const handleCreateLead = async (e) => {
@@ -706,6 +712,41 @@ const SuperAdminDashboard = () => {
           </div>
 
           {/* Filters */}
+          
+          {/* Duplicate Status Filter Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setLeadFilters({...leadFilters, duplicateStatus: ''})}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                leadFilters.duplicateStatus === '' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All Leads
+            </button>
+            <button
+              onClick={() => setLeadFilters({...leadFilters, duplicateStatus: 'duplicates'})}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                leadFilters.duplicateStatus === 'duplicates' 
+                  ? 'bg-red-600 text-white' 
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              🔄 Duplicate Leads
+            </button>
+            <button
+              onClick={() => setLeadFilters({...leadFilters, duplicateStatus: 'unique'})}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                leadFilters.duplicateStatus === 'unique' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              ✅ Unique Leads
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
             {/* Search Input */}
             <div className="relative">
@@ -770,6 +811,21 @@ const SuperAdminDashboard = () => {
               </select>
             </div>
 
+            {/* Qualification Status Filter */}
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select
+                value={leadFilters.qualificationStatus}
+                onChange={(e) => setLeadFilters({...leadFilters, qualificationStatus: e.target.value})}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 w-full"
+              >
+                <option value="">All Qualification</option>
+                <option value="qualified">Qualified</option>
+                <option value="unqualified">Unqualified</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+
             {/* Clear Filters */}
             <button
               onClick={() => setLeadFilters({
@@ -779,7 +835,9 @@ const SuperAdminDashboard = () => {
                 endDate: '',
                 status: '',
                 category: '',
-                assignedTo: ''
+                qualificationStatus: '',
+                assignedTo: '',
+                duplicateStatus: ''
               })}
               className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
             >
@@ -801,6 +859,7 @@ const SuperAdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debt Details</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duplicate Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -808,7 +867,7 @@ const SuperAdminDashboard = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {leads.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                         No leads found
                       </td>
                     </tr>
@@ -859,6 +918,29 @@ const SuperAdminDashboard = () => {
                           }`}>
                             {lead.status || 'new'}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {lead.isDuplicate ? (
+                            <div>
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                🔄 Duplicate
+                              </span>
+                              {lead.duplicateReason && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {lead.duplicateReason}
+                                </div>
+                              )}
+                              {lead.duplicateOf && (
+                                <div className="text-xs text-blue-600 mt-1">
+                                  Original: {lead.duplicateOf.leadId || lead.duplicateOf}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                              ✅ Unique
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div>{new Date(lead.createdAt).toLocaleDateString()}</div>

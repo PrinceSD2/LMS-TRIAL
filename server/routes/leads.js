@@ -21,25 +21,27 @@ const createLeadValidation = [
     .custom((value) => {
       if (!value || value.trim() === '') return true; // allow empty or missing
       if (typeof value !== 'string') throw new Error('Phone must be a string');
-      // Validate +1 followed by exactly 10 digits
-      if (!/^\+1\d{10}$/.test(value.trim())) {
-        throw new Error('Phone number must be in format +1 followed by 10 digits (e.g., +12345678901)');
+      // Accept either +1XXXXXXXXXX or just XXXXXXXXXX format
+      const cleanPhone = value.trim().replace(/[\s\-\(\)]/g, '');
+      if (!/^(\+1)?\d{10}$/.test(cleanPhone)) {
+        throw new Error('Phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)');
       }
       return true;
     })
-    .withMessage('Phone number must be in format +1 followed by 10 digits (e.g., +12345678901)'),
+    .withMessage('Phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)'),
   body('alternatePhone')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
       if (!value || value.trim() === '') return true; // allow empty or missing
       if (typeof value !== 'string') throw new Error('Alternate phone must be a string');
-      // Validate +1 followed by exactly 10 digits
-      if (!/^\+1\d{10}$/.test(value.trim())) {
-        throw new Error('Alternate phone number must be in format +1 followed by 10 digits (e.g., +12345678901)');
+      // Accept either +1XXXXXXXXXX or just XXXXXXXXXX format
+      const cleanPhone = value.trim().replace(/[\s\-\(\)]/g, '');
+      if (!/^(\+1)?\d{10}$/.test(cleanPhone)) {
+        throw new Error('Alternate phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)');
       }
       return true;
     })
-    .withMessage('Alternate phone number must be in format +1 followed by 10 digits (e.g., +12345678901)'),
+    .withMessage('Alternate phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)'),
   body('debtCategory')
     .optional({ nullable: true, checkFalsy: true })
     .isIn(['secured', 'unsecured'])
@@ -342,6 +344,14 @@ router.get('/', protect, [
     .optional()
     .isIn(['hot', 'warm', 'cold'])
     .withMessage('Invalid category filter'),
+  query('qualificationStatus')
+    .optional()
+    .isIn(['qualified', 'unqualified', 'pending'])
+    .withMessage('Invalid qualification status filter'),
+  query('duplicateStatus')
+    .optional()
+    .isIn(['all', 'duplicates', 'non-duplicates'])
+    .withMessage('Invalid duplicate status filter'),
   query('search')
     .optional()
     .trim()
@@ -364,6 +374,20 @@ router.get('/', protect, [
       filter.category = req.query.category;
     }
 
+    if (req.query.qualificationStatus) {
+      filter.qualificationStatus = req.query.qualificationStatus;
+    }
+
+    // Duplicate status filter
+    if (req.query.duplicateStatus) {
+      if (req.query.duplicateStatus === 'duplicates') {
+        filter.isDuplicate = true;
+      } else if (req.query.duplicateStatus === 'non-duplicates') {
+        filter.isDuplicate = { $ne: true };
+      }
+      // 'all' shows both duplicates and non-duplicates (no filter added)
+    }
+
     // Search functionality
     if (req.query.search) {
       filter.$or = [
@@ -380,10 +404,24 @@ router.get('/', protect, [
       filter.adminProcessed = { $ne: true }; // Hide admin-processed leads
       console.log('Agent1 filter applied:', filter);
     } else if (req.user.role === 'agent2') {
-      // Agent2 can only see leads assigned to them
-      filter.assignedTo = req.user._id;
-      filter.adminProcessed = { $ne: true }; // Hide admin-processed leads
+      // Agent2 can see:
+      // 1. Leads assigned to them
+      // 2. Duplicate leads (for review)
+      filter.$or = [
+        { 
+          assignedTo: req.user._id,
+          adminProcessed: { $ne: true }
+        },
+        { 
+          isDuplicate: true,
+          adminProcessed: { $ne: true }
+        }
+      ];
       console.log('Agent2 filter applied:', filter);
+    } else if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      // Admin and SuperAdmin can see all leads including duplicates
+      // No additional filters needed beyond query parameters
+      console.log('Admin/SuperAdmin filter applied: No restrictions');
     }
 
     console.log('Final filter:', filter);
@@ -395,6 +433,8 @@ router.get('/', protect, [
       .populate('updatedBy', 'name email')
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name email')
+      .populate('duplicateOf', 'leadId name email phone')
+      .populate('duplicateDetectedBy', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -532,30 +572,58 @@ router.post('/', protect, createLeadValidation, handleValidationErrors, async (r
     console.log('Lead created successfully:', lead._id);
     console.log('Saved lead data:', JSON.stringify(lead, null, 2));
     
+    // Set duplicate detection user if it's a duplicate
+    if (lead.isDuplicate) {
+      lead.duplicateDetectedBy = req.user._id;
+      await lead.save();
+    }
+    
     // Populate the created lead
     await lead.populate('createdBy', 'name email');
+    if (lead.duplicateOf) {
+      await lead.populate('duplicateOf', 'leadId name email phone');
+    }
 
     // Emit real-time update
     if (req.io) {
-      req.io.emit('leadCreated', {
+      const eventData = {
         lead: lead,
-        createdBy: req.user.name
-      });
+        createdBy: req.user.name,
+        isDuplicate: lead.isDuplicate,
+        duplicateInfo: lead.isDuplicate ? {
+          duplicateOf: lead.duplicateOf,
+          duplicateReason: lead.duplicateReason
+        } : null
+      };
+      
+      req.io.emit('leadCreated', eventData);
       // Also emit to specific rooms
-      req.io.to('admin').emit('leadCreated', {
-        lead: lead,
-        createdBy: req.user.name
-      });
-      req.io.to('agent2').emit('leadCreated', {
-        lead: lead,
-        createdBy: req.user.name
-      });
+      req.io.to('admin').emit('leadCreated', eventData);
+      req.io.to('superadmin').emit('leadCreated', eventData);
+      req.io.to('agent2').emit('leadCreated', eventData);
+      
+      // Special notification for duplicates
+      if (lead.isDuplicate) {
+        req.io.to('admin').emit('duplicateLeadDetected', eventData);
+        req.io.to('superadmin').emit('duplicateLeadDetected', eventData);
+        req.io.to('agent2').emit('duplicateLeadDetected', eventData);
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: 'Lead created successfully',
-      data: { lead }
+      message: lead.isDuplicate 
+        ? `Lead created successfully but marked as duplicate (${lead.duplicateReason} match found)`
+        : 'Lead created successfully',
+      data: { 
+        lead,
+        isDuplicate: lead.isDuplicate,
+        duplicateInfo: lead.isDuplicate ? {
+          duplicateOf: lead.duplicateOf,
+          duplicateReason: lead.duplicateReason,
+          duplicateDetectedAt: lead.duplicateDetectedAt
+        } : null
+      }
     });
 
   } catch (error) {
@@ -629,7 +697,8 @@ router.put('/:id', protect, updateLeadValidation, handleValidationErrors, async 
         'status', 'leadStatus', 'contactStatus', 'qualificationOutcome', 
         'callDisposition', 'engagementOutcome', 'disqualification',
         'followUpDate', 'followUpTime', 'followUpNotes', 'conversionValue',
-        'leadProgressStatus', 'agent2LastAction', 'lastUpdatedBy', 'lastUpdatedAt'
+        'leadProgressStatus', 'agent2LastAction', 'lastUpdatedBy', 'lastUpdatedAt',
+        'qualificationStatus'
       ];
     }
 

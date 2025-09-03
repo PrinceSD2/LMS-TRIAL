@@ -416,7 +416,23 @@ const Agent1Dashboard = () => {
       const response = await axios.post('/api/leads', cleanFormData);
       console.log('Lead creation response:', response);
       console.log('Lead creation response data:', response.data);
-      toast.success('Lead added successfully!');
+      
+      // Check if lead is a duplicate
+      if (response.data.isDuplicate) {
+        const duplicateInfo = response.data.duplicateInfo;
+        const reasonText = {
+          'email': 'email address',
+          'phone': 'phone number', 
+          'both': 'email and phone number'
+        }[duplicateInfo.duplicateReason] || 'contact information';
+        
+        toast.success(
+          `Lead created but marked as duplicate due to matching ${reasonText}!`,
+          { duration: 6000, icon: '⚠️' }
+        );
+      } else {
+        toast.success('Lead added successfully!');
+      }
 
       setFormData({
         name: '',
@@ -861,6 +877,9 @@ const Agent1Dashboard = () => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duplicate
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -924,6 +943,28 @@ const Agent1Dashboard = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(lead.status)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {lead.isDuplicate ? (
+                      <div className="text-sm">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Duplicate
+                        </span>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {lead.duplicateReason === 'both' ? 'Email & Phone' : 
+                           lead.duplicateReason === 'email' ? 'Email' : 'Phone'}
+                        </div>
+                        {lead.duplicateOf && (
+                          <div className="text-xs text-gray-400">
+                            Original: {lead.duplicateOf.leadId}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Original
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(lead.createdAt).toLocaleDateString()}

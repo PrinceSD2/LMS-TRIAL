@@ -29,10 +29,10 @@ const leadSchema = new mongoose.Schema({
         if (!v) return true; // allow missing/undefined
         const str = String(v).trim();
         if (str === '') return true; // treat empty as not provided
-        // Validate +1 followed by exactly 10 digits
-        return /^\+1\d{10}$/.test(str);
+        // Accept either +1XXXXXXXXXX or just XXXXXXXXXX format
+        return /^(\+1)?\d{10}$/.test(str.replace(/[\s\-\(\)]/g, ''));
       },
-      message: 'Phone number must be in format +1 followed by 10 digits (e.g., +12345678901)'
+      message: 'Phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)'
     }
   },
   alternatePhone: {
@@ -43,10 +43,10 @@ const leadSchema = new mongoose.Schema({
         if (!v) return true; // allow missing/undefined
         const str = String(v).trim();
         if (str === '') return true; // treat empty as not provided
-        // Validate +1 followed by exactly 10 digits
-        return /^\+1\d{10}$/.test(str);
+        // Accept either +1XXXXXXXXXX or just XXXXXXXXXX format
+        return /^(\+1)?\d{10}$/.test(str.replace(/[\s\-\(\)]/g, ''));
       },
-      message: 'Alternate phone number must be in format +1 followed by 10 digits (e.g., +12345678901)'
+      message: 'Alternate phone number must be 10 digits with optional +1 prefix (e.g., +12345678901 or 2345678901)'
     }
   },
   
@@ -222,6 +222,13 @@ const leadSchema = new mongoose.Schema({
     ]
   },
   
+  // Lead Qualification Status (for admin filtering)
+  qualificationStatus: {
+    type: String,
+    enum: ['qualified', 'unqualified', 'pending'],
+    default: 'pending'
+  },
+  
   // Agent 2 Tracking Fields
   agent2LastAction: {
     type: String
@@ -296,6 +303,30 @@ const leadSchema = new mongoose.Schema({
   },
   adminProcessedAt: {
     type: Date
+  },
+  
+  // Duplicate detection fields
+  isDuplicate: {
+    type: Boolean,
+    default: false
+  },
+  duplicateOf: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lead'
+  },
+  duplicateReason: {
+    type: String,
+    enum: ['email', 'phone', 'both'],
+    required: function() {
+      return this.isDuplicate;
+    }
+  },
+  duplicateDetectedAt: {
+    type: Date
+  },
+  duplicateDetectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
@@ -308,8 +339,14 @@ leadSchema.index({ assignedTo: 1 });
 leadSchema.index({ assignedBy: 1 });
 leadSchema.index({ status: 1 });
 leadSchema.index({ category: 1 });
+leadSchema.index({ qualificationStatus: 1 });
+leadSchema.index({ leadProgressStatus: 1 });
 leadSchema.index({ createdAt: -1 });
 leadSchema.index({ followUpDate: 1 });
+leadSchema.index({ email: 1 });
+leadSchema.index({ phone: 1 });
+leadSchema.index({ isDuplicate: 1 });
+leadSchema.index({ duplicateOf: 1 });
 
 // Function to generate unique lead ID
 const generateLeadId = async function() {
@@ -324,12 +361,29 @@ const generateLeadId = async function() {
   const endOfDay = new Date(currentDate);
   endOfDay.setHours(23, 59, 59, 999);
   
-  const todayLeadsCount = await this.constructor.countDocuments({
-    createdAt: { $gte: startOfDay, $lte: endOfDay }
-  });
+  let attempts = 0;
+  const maxAttempts = 10;
   
-  const sequence = String(todayLeadsCount + 1).padStart(4, '0');
-  return `LEAD${year}${month}${sequence}`;
+  while (attempts < maxAttempts) {
+    const todayLeadsCount = await this.constructor.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+    
+    const sequence = String(todayLeadsCount + 1 + attempts).padStart(4, '0');
+    const leadId = `LEAD${year}${month}${sequence}`;
+    
+    // Check if this leadId already exists
+    const existingLead = await this.constructor.findOne({ leadId });
+    if (!existingLead) {
+      return leadId;
+    }
+    
+    attempts++;
+  }
+  
+  // Fallback: use timestamp-based sequence
+  const timestamp = Date.now().toString().slice(-4);
+  return `LEAD${year}${month}${timestamp}`;
 };
 
 // Pre-save middleware to generate leadId and calculate completion percentage and category
@@ -374,6 +428,90 @@ leadSchema.pre('save', async function(next) {
     this.convertedAt = new Date();
   }
 
+  // Normalize phone numbers to include +1 prefix
+  if (this.phone) {
+    let phone = String(this.phone).trim().replace(/[\s\-\(\)]/g, '');
+    if (phone && !phone.startsWith('+1') && phone.length === 10) {
+      this.phone = '+1' + phone;
+    }
+  }
+  
+  if (this.alternatePhone) {
+    let altPhone = String(this.alternatePhone).trim().replace(/[\s\-\(\)]/g, '');
+    if (altPhone && !altPhone.startsWith('+1') && altPhone.length === 10) {
+      this.alternatePhone = '+1' + altPhone;
+    }
+  }
+
+  // Duplicate detection for new leads
+  if (this.isNew && (this.email || this.phone)) {
+    const duplicateQuery = { $and: [
+      { _id: { $ne: this._id } }, // Exclude current document
+      { $or: [] }
+    ]};
+    
+    // Check for email duplicate
+    if (this.email) {
+      duplicateQuery.$and[1].$or.push({ email: this.email });
+    }
+    
+    // Check for phone duplicate
+    if (this.phone) {
+      duplicateQuery.$and[1].$or.push({ phone: this.phone });
+    }
+    
+    // Only proceed if we have conditions to check
+    if (duplicateQuery.$and[1].$or.length > 0) {
+      const existingLead = await this.constructor.findOne(duplicateQuery);
+      
+      if (existingLead) {
+        this.isDuplicate = true;
+        this.duplicateOf = existingLead._id;
+        this.duplicateDetectedAt = new Date();
+        
+        // Determine duplicate reason
+        const emailMatch = this.email && this.email === existingLead.email;
+        const phoneMatch = this.phone && this.phone === existingLead.phone;
+        
+        if (emailMatch && phoneMatch) {
+          this.duplicateReason = 'both';
+        } else if (emailMatch) {
+          this.duplicateReason = 'email';
+        } else if (phoneMatch) {
+          this.duplicateReason = 'phone';
+        }
+      }
+    }
+  }
+
+  // Auto-set qualification status based on leadProgressStatus
+  if (this.isModified('leadProgressStatus') && this.leadProgressStatus) {
+    const qualifiedStatuses = [
+      'Appointment Scheduled',
+      'Immediate Enrollment',
+      'Info Provided – Awaiting Decision',
+      'Qualified – Meets Criteria',
+      'Pre-Qualified – Docs Needed'
+    ];
+    
+    const unqualifiedStatuses = [
+      'Disqualified – Debt Too Low',
+      'Disqualified – Secured Debt Only',
+      'Disqualified – Non-Service State',
+      'Disqualified – Active with Competitor',
+      'Not Interested',
+      'DNC (Do Not Contact)'
+    ];
+    
+    if (qualifiedStatuses.includes(this.leadProgressStatus)) {
+      this.qualificationStatus = 'qualified';
+    } else if (unqualifiedStatuses.includes(this.leadProgressStatus)) {
+      this.qualificationStatus = 'unqualified';
+    } else {
+      this.qualificationStatus = 'pending';
+    }
+  }
+
   next();
 });
 
@@ -406,6 +544,15 @@ leadSchema.statics.getStatistics = async function() {
         },
         followUpLeads: {
           $sum: { $cond: [{ $eq: ['$status', 'follow-up'] }, 1, 0] }
+        },
+        qualifiedLeads: {
+          $sum: { $cond: [{ $eq: ['$qualificationStatus', 'qualified'] }, 1, 0] }
+        },
+        unqualifiedLeads: {
+          $sum: { $cond: [{ $eq: ['$qualificationStatus', 'unqualified'] }, 1, 0] }
+        },
+        pendingLeads: {
+          $sum: { $cond: [{ $eq: ['$qualificationStatus', 'pending'] }, 1, 0] }
         }
       }
     }
@@ -418,12 +565,20 @@ leadSchema.statics.getStatistics = async function() {
     coldLeads: 0,
     interestedLeads: 0,
     successfulLeads: 0,
-    followUpLeads: 0
+    followUpLeads: 0,
+    qualifiedLeads: 0,
+    unqualifiedLeads: 0,
+    pendingLeads: 0
   };
 
   // Calculate conversion rate
   result.conversionRate = result.totalLeads > 0 
     ? ((result.successfulLeads / result.totalLeads) * 100).toFixed(2)
+    : 0;
+
+  // Calculate qualification rate
+  result.qualificationRate = result.totalLeads > 0 
+    ? ((result.qualifiedLeads / result.totalLeads) * 100).toFixed(2)
     : 0;
 
   return result;

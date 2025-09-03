@@ -32,6 +32,12 @@ const AdminDashboard = () => {
     endDate: '',
     filterType: 'all' // 'all', 'today', 'week', 'month', 'custom'
   });
+
+  // Add qualification status filter
+  const [qualificationFilter, setQualificationFilter] = useState('all'); // 'all', 'qualified', 'unqualified', 'pending'
+  
+  // Add duplicate status filter
+  const [duplicateFilter, setDuplicateFilter] = useState('all'); // 'all', 'duplicates', 'non-duplicates'
   
   // Lead update modal states - REMOVED (Admin is now read-only)
   const [selectedLead, setSelectedLead] = useState(null);
@@ -115,7 +121,7 @@ const AdminDashboard = () => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [showLeadsSection]);
+  }, [showLeadsSection, qualificationFilter, duplicateFilter]);
 
   useEffect(() => {
     // Socket.IO event listeners for real-time updates
@@ -203,7 +209,19 @@ const AdminDashboard = () => {
     try {
       console.log('Admin Dashboard: Fetching leads...');
       const timestamp = new Date().getTime();
-      const response = await axios.get(`/api/leads?page=1&limit=50&_t=${timestamp}`);
+      let url = `/api/leads?page=1&limit=50&_t=${timestamp}`;
+      
+      // Add qualification filter if selected
+      if (qualificationFilter && qualificationFilter !== 'all') {
+        url += `&qualificationStatus=${qualificationFilter}`;
+      }
+      
+      // Add duplicate filter if selected
+      if (duplicateFilter && duplicateFilter !== 'all') {
+        url += `&duplicateStatus=${duplicateFilter}`;
+      }
+      
+      const response = await axios.get(url);
       const leadsData = response.data?.data?.leads;
       setLeads(Array.isArray(leadsData) ? leadsData : []);
     } catch (error) {
@@ -256,7 +274,30 @@ const AdminDashboard = () => {
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badges[status]}`}>
         <Icon className="w-3 h-3 mr-1" />
-        {status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+        {status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+      </span>
+    );
+  };
+
+  const getQualificationBadge = (qualificationStatus) => {
+    const badges = {
+      qualified: 'bg-green-100 text-green-800 border-green-200',
+      unqualified: 'bg-red-100 text-red-800 border-red-200',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+    };
+
+    const icons = {
+      qualified: CheckCircle,
+      unqualified: XCircle,
+      pending: Clock
+    };
+
+    const Icon = icons[qualificationStatus] || Clock;
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${badges[qualificationStatus] || badges.pending}`}>
+        <Icon className="w-3 h-3 mr-1" />
+        {qualificationStatus?.charAt(0).toUpperCase() + qualificationStatus?.slice(1) || 'Pending'}
       </span>
     );
   };
@@ -284,97 +325,110 @@ const AdminDashboard = () => {
   }
 
   const conversionRate = parseFloat(stats.conversionRate) || 0;
+  const qualificationRate = parseFloat(stats.qualificationRate) || 0;
   const filteredLeads = getDateFilteredLeads(leads);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Real-time lead management overview (Read-only access)</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-500">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Leads</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalLeads}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100">
-              <TrendingUp className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Hot Leads</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.hotLeads}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100">
-              <Target className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-              <p className="text-2xl font-bold text-gray-900">{conversionRate.toFixed(1)}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Agents</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeAgents || 0}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Management Toggle */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-10 px-2">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
-            <h3 className="text-lg font-medium text-gray-900">Lead Management</h3>
-            <p className="text-sm text-gray-600">View all leads and observe agent actions (Admin has read-only access)</p>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
+            <p className="text-gray-600 mt-1">Real-time lead management overview <span className="font-semibold text-blue-600">(Read-only access)</span></p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm text-gray-500">
+              Last updated: <span className="font-semibold">{lastUpdated.toLocaleTimeString()}</span>
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:scale-105 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-blue-100">
+              <BarChart3 className="h-7 w-7 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Leads</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.totalLeads}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-green-100">
+              <TrendingUp className="h-7 w-7 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Hot Leads</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.hotLeads}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-emerald-100">
+              <CheckCircle className="h-7 w-7 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Qualified</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.qualifiedLeads || 0}</p>
+              <p className="text-xs text-emerald-600 font-medium">{qualificationRate}%</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-red-100">
+              <XCircle className="h-7 w-7 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Unqualified</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.unqualifiedLeads || 0}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-yellow-100">
+              <Target className="h-7 w-7 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+              <p className="text-3xl font-bold text-gray-900">{conversionRate.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4">
+            <div className="p-4 rounded-full bg-purple-100">
+              <Users className="h-7 w-7 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Agents</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.activeAgents || 0}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Lead Management Toggle */}
+        <div className="bg-white p-7 rounded-2xl shadow-xl border border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Lead Management</h3>
+            <p className="text-sm text-gray-600">View all leads and observe agent actions <span className="font-semibold text-blue-600">(Admin has read-only access)</span></p>
           </div>
           <button
             onClick={() => setShowLeadsSection(!showLeadsSection)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors duration-200"
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:scale-105 transition-all duration-200"
           >
             {showLeadsSection ? 'Hide Leads' : 'Show Leads'}
           </button>
         </div>
-      </div>
 
       {/* Date Filter Controls - ONLY FOR ADMIN */}
       {showLeadsSection && (
@@ -446,8 +500,106 @@ const AdminDashboard = () => {
             </div>
           </div>
           
+          {/* Qualification Filter */}
+          <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Filter by Qualification:</span>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setQualificationFilter('all')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  qualificationFilter === 'all' 
+                    ? 'bg-primary-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setQualificationFilter('qualified')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  qualificationFilter === 'qualified' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Qualified
+              </button>
+              <button
+                onClick={() => setQualificationFilter('unqualified')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  qualificationFilter === 'unqualified' 
+                    ? 'bg-red-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Unqualified
+              </button>
+              <button
+                onClick={() => setQualificationFilter('pending')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  qualificationFilter === 'pending' 
+                    ? 'bg-yellow-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Pending
+              </button>
+            </div>
+          </div>
+          
+          {/* Duplicate Status Filter */}
+          <div className="mb-6">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Filter by Duplicate Status:</h4>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setDuplicateFilter('all')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  duplicateFilter === 'all' 
+                    ? 'bg-primary-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Leads
+              </button>
+              <button
+                onClick={() => setDuplicateFilter('duplicates')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  duplicateFilter === 'duplicates' 
+                    ? 'bg-yellow-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Duplicates Only
+              </button>
+              <button
+                onClick={() => setDuplicateFilter('non-duplicates')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  duplicateFilter === 'non-duplicates' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Original Only
+              </button>
+            </div>
+          </div>
+          
           <div className="mt-4 text-sm text-gray-600">
             Showing {filteredLeads.length} of {leads.length} leads
+            {qualificationFilter !== 'all' && (
+              <span className="ml-2 text-primary-600 font-medium">
+                (Filtered by: {qualificationFilter.charAt(0).toUpperCase() + qualificationFilter.slice(1)})
+              </span>
+            )}
+            {duplicateFilter !== 'all' && (
+              <span className="ml-2 text-yellow-600 font-medium">
+                (Duplicate Filter: {duplicateFilter === 'duplicates' ? 'Duplicates Only' : 'Original Only'})
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -473,6 +625,12 @@ const AdminDashboard = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Qualification
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Duplicate Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Agent2 Status
@@ -505,6 +663,31 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getCategoryBadge(lead.category, lead.completionPercentage)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getQualificationBadge(lead.qualificationStatus)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {lead.isDuplicate ? (
+                          <div className="text-sm">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                              ⚠️ Duplicate
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {lead.duplicateReason === 'both' ? 'Email & Phone' : 
+                               lead.duplicateReason === 'email' ? 'Email Match' : 'Phone Match'}
+                            </div>
+                            {lead.duplicateOf && (
+                              <div className="text-xs text-gray-400">
+                                Original: {lead.duplicateOf.leadId}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            ✓ Original
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -548,7 +731,7 @@ const AdminDashboard = () => {
                   ))}
                   {filteredLeads.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                         No leads found matching your criteria.
                       </td>
                     </tr>
@@ -729,6 +912,10 @@ const AdminDashboard = () => {
                         <div className="text-right">{getCategoryBadge(selectedLead.category, selectedLead.completionPercentage)}</div>
                       </div>
                       <div className="flex justify-between items-start">
+                        <span className="text-sm font-medium text-gray-600">Qualification:</span>
+                        <div className="text-right">{getQualificationBadge(selectedLead.qualificationStatus)}</div>
+                      </div>
+                      <div className="flex justify-between items-start">
                         <span className="text-sm font-medium text-gray-600">Status:</span>
                         <div className="text-right">{getStatusBadge(selectedLead.status)}</div>
                       </div>
@@ -862,6 +1049,7 @@ const AdminDashboard = () => {
 
       {/* Agent Management Section */}
       <AgentManagement />
+      </div>
     </div>
   );
 };

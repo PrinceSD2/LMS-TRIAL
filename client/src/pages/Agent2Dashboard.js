@@ -126,7 +126,8 @@ const Agent2Dashboard = () => {
   const [filters, setFilters] = useState({
     status: '',
     category: '',
-    search: ''
+    search: '',
+    duplicateStatus: ''
   });
 
   const [updateData, setUpdateData] = useState({
@@ -134,7 +135,8 @@ const Agent2Dashboard = () => {
     followUpDate: '',
     followUpTime: '',
     followUpNotes: '',
-    conversionValue: ''
+    conversionValue: '',
+    qualificationStatus: ''
   });
 
   useEffect(() => {
@@ -190,6 +192,8 @@ const Agent2Dashboard = () => {
       if (filters.status) params.append('status', filters.status);
       if (filters.category) params.append('category', filters.category);
       if (filters.search) params.append('search', filters.search);
+      if (filters.duplicateStatus) params.append('duplicateStatus', filters.duplicateStatus);
+      if (filters.qualificationStatus) params.append('qualificationStatus', filters.qualificationStatus);
 
       const response = await axios.get(`/api/leads?${params.toString()}`);
       const leadsData = response.data?.data?.leads;
@@ -481,7 +485,8 @@ const Agent2Dashboard = () => {
       followUpDate: lead.followUpDate ? new Date(lead.followUpDate).toISOString().split('T')[0] : '',
       followUpTime: lead.followUpTime || '',
       followUpNotes: lead.followUpNotes || '',
-      conversionValue: lead.conversionValue || ''
+      conversionValue: lead.conversionValue || '',
+      qualificationStatus: lead.qualificationStatus || ''
     });
     setShowUpdateModal(true);
   };
@@ -649,6 +654,40 @@ const Agent2Dashboard = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        {/* Duplicate Status Filter Buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setFilters({...filters, duplicateStatus: ''})}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filters.duplicateStatus === '' 
+                ? 'bg-indigo-600 text-white' 
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            All Leads
+          </button>
+          <button
+            onClick={() => setFilters({...filters, duplicateStatus: 'duplicates'})}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filters.duplicateStatus === 'duplicates' 
+                ? 'bg-red-600 text-white' 
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            🔄 Duplicate Leads
+          </button>
+          <button
+            onClick={() => setFilters({...filters, duplicateStatus: 'unique'})}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filters.duplicateStatus === 'unique' 
+                ? 'bg-green-600 text-white' 
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            ✅ Unique Leads
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -678,9 +717,23 @@ const Agent2Dashboard = () => {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Qualification Status</label>
+            <select
+              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+              value={filters.qualificationStatus}
+              onChange={(e) => setFilters({ ...filters, qualificationStatus: e.target.value })}
+            >
+              <option value="">All Qualification</option>
+              <option value="qualified">Qualified</option>
+              <option value="unqualified">Disqualified</option>
+              <option value="pending">Not Interested</option>
+            </select>
+          </div>
+
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({ status: '', category: '', search: '' })}
+              onClick={() => setFilters({ status: '', category: '', search: '', duplicateStatus: '', qualificationStatus: '' })}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors duration-200"
             >
               Clear Filters
@@ -713,6 +766,12 @@ const Agent2Dashboard = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Debt Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duplicate Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Qualification Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -763,6 +822,40 @@ const Agent2Dashboard = () => {
                     {Array.isArray(lead.debtTypes) && lead.debtTypes.length > 0 
                       ? lead.debtTypes.slice(0, 2).join(', ') + (lead.debtTypes.length > 2 ? '...' : '')
                       : (lead.source || 'N/A')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {lead.isDuplicate ? (
+                      <div>
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                          🔄 Duplicate
+                        </span>
+                        {lead.duplicateReason && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {lead.duplicateReason}
+                          </div>
+                        )}
+                        {lead.duplicateOf && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            Original: {lead.duplicateOf.leadId || lead.duplicateOf}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        ✅ Unique
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      lead.qualificationStatus === 'qualified' ? 'bg-green-100 text-green-800' :
+                      lead.qualificationStatus === 'unqualified' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {lead.qualificationStatus === 'qualified' ? '✅ Qualified' :
+                       lead.qualificationStatus === 'unqualified' ? '❌ Disqualified' :
+                       '⏳ Pending'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
@@ -1161,6 +1254,48 @@ const Agent2Dashboard = () => {
                     <p className="text-sm text-gray-500">{selectedLead.company}</p>
                   </div>
 
+                  {/* Current Lead Status Information */}
+                  {selectedLead.leadProgressStatus && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Current Status Information</h4>
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">Progress Status:</span>{' '}
+                          <span className="text-indigo-600">{selectedLead.leadProgressStatus}</span>
+                        </div>
+                        {selectedLead.qualificationStatus && (
+                          <div className="text-sm">
+                            <span className="font-medium text-gray-700">Qualification:</span>{' '}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              selectedLead.qualificationStatus === 'qualified' ? 'bg-green-100 text-green-800' :
+                              selectedLead.qualificationStatus === 'unqualified' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {selectedLead.qualificationStatus === 'qualified' ? 'Qualified' :
+                               selectedLead.qualificationStatus === 'unqualified' ? 'Disqualified' :
+                               'Pending'}
+                            </span>
+                          </div>
+                        )}
+                        {selectedLead.followUpDate && (
+                          <div className="text-sm">
+                            <span className="font-medium text-gray-700">Follow-up Date:</span>{' '}
+                            <span className="text-gray-600">{new Date(selectedLead.followUpDate).toLocaleDateString()}</span>
+                            {selectedLead.followUpTime && (
+                              <span className="text-gray-600"> at {selectedLead.followUpTime}</span>
+                            )}
+                          </div>
+                        )}
+                        {selectedLead.followUpNotes && (
+                          <div className="text-sm">
+                            <span className="font-medium text-gray-700">Last Notes:</span>{' '}
+                            <span className="text-gray-600">{selectedLead.followUpNotes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     {/* Unified Lead Progress Status Dropdown */}
                     <div>
@@ -1176,6 +1311,22 @@ const Agent2Dashboard = () => {
                         {agent2LeadProgressOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
                         ))}
+                      </select>
+                    </div>
+
+                    {/* Qualification Status Dropdown */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Qualification Status</label>
+                      <select
+                        name="qualificationStatus"
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                        value={updateData.qualificationStatus}
+                        onChange={(e) => setUpdateData({ ...updateData, qualificationStatus: e.target.value })}
+                      >
+                        <option value="">Select Qualification Status</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="unqualified">Disqualified</option>
+                        <option value="pending">Not Interested</option>
                       </select>
                     </div>
 
