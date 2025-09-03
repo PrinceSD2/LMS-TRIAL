@@ -1,106 +1,98 @@
 #!/bin/bash
 
-# LMS Auto-Deployment Script for Updates
-# Use this script for future deployments after initial setup
+# Auto-Deploy Script for LMS-TRIAL
+# This script handles automatic deployment of updates
 
 set -e
 
-SERVER_IP="16.171.146.116"
-APP_DIR="/var/www/lms"
-BACKUP_DIR="/var/backups/lms"
+echo "🔄 Starting auto-deployment for LMS-TRIAL..."
 
-# Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+PROJECT_DIR="/var/www/lms-trial"
+BACKUP_DIR="/var/backups/lms-trial"
+DATE=$(date +%Y%m%d_%H%M%S)
 
-print_status() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+# Function to rollback on failure
+rollback() {
+    echo "❌ Deployment failed! Rolling back..."
+    if [ -d "$BACKUP_DIR/backup_$DATE" ]; then
+        sudo rm -rf $PROJECT_DIR
+        sudo mv $BACKUP_DIR/backup_$DATE $PROJECT_DIR
+        pm2 restart lms-trial-backend
+        sudo systemctl reload nginx
+        echo "🔙 Rollback completed!"
+    fi
+    exit 1
 }
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+# Set trap for rollback on error
+trap rollback ERR
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+echo "📋 Pre-deployment checks..."
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    print_error "Please run this script as root (use sudo)"
+# Check if services are running
+if ! pm2 describe lms-trial-backend > /dev/null 2>&1; then
+    echo "❌ Backend service not running!"
     exit 1
 fi
 
-print_status "🔄 Starting LMS Auto-Deployment..."
-
-# Create backup directory
-mkdir -p $BACKUP_DIR
-
-# Backup current version
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-print_status "📦 Creating backup..."
-cp -r $APP_DIR/lms-system $BACKUP_DIR/lms-system-$TIMESTAMP
-
-# Navigate to app directory
-cd $APP_DIR/lms-system
-
-# Pull latest changes (if using git)
-if [ -d ".git" ]; then
-    print_status "📥 Pulling latest changes from git..."
-    git pull origin main
-else
-    print_warning "Git repository not found. Please manually update files."
-    read -p "Press enter when files are updated..."
+if ! sudo systemctl is-active --quiet nginx; then
+    echo "❌ Nginx service not running!"
+    exit 1
 fi
 
-# Install/update backend dependencies
-print_status "📦 Updating backend dependencies..."
+# Create backup
+echo "💾 Creating backup..."
+sudo mkdir -p $BACKUP_DIR
+sudo cp -r $PROJECT_DIR $BACKUP_DIR/backup_$DATE
+
+echo "📥 Pulling latest changes..."
+cd $PROJECT_DIR
+
+# If using Git (uncomment if you set up Git deployment)
+# git pull origin main
+
+echo "📦 Installing/updating dependencies..."
+
+# Update server dependencies
 cd server
-npm install --production
-cd ..
+npm ci --only=production
 
-# Build frontend
-print_status "🎨 Building frontend..."
-cd client
-npm install
+# Update and rebuild client
+cd ../client
+npm ci
 npm run build
-cd ..
 
-# Set proper permissions for frontend files
-chown -R www-data:www-data client/build
-chmod -R 755 client/build
+echo "🔄 Restarting services..."
 
-# Restart PM2 application
-print_status "🔄 Restarting backend application..."
-pm2 restart lms-backend
+# Restart backend
+pm2 restart lms-trial-backend
 
-# Wait for application to start
+# Wait for backend to start
 sleep 5
 
-# Test if backend is responding
-print_status "🧪 Testing backend health..."
-if curl -f http://localhost:5000/api/auth/health >/dev/null 2>&1; then
-    print_status "✅ Backend is responding"
-else
-    print_warning "⚠️  Backend health check failed, but continuing..."
+# Test backend health
+if ! curl -f http://localhost:5000/api/health > /dev/null 2>&1; then
+    echo "❌ Backend health check failed!"
+    rollback
 fi
 
-# Reload Nginx to pick up any changes
-print_status "🔄 Reloading Nginx..."
-nginx -t && systemctl reload nginx
+# Reload nginx
+sudo systemctl reload nginx
 
-# Clean old backups (keep only last 5)
-print_status "🧹 Cleaning old backups..."
+# Test frontend
+if ! curl -f http://localhost > /dev/null 2>&1; then
+    echo "❌ Frontend health check failed!"
+    rollback
+fi
+
+echo "🧹 Cleaning up old backups (keeping last 5)..."
 cd $BACKUP_DIR
-ls -t | tail -n +6 | xargs -r rm -rf
+ls -t | tail -n +6 | xargs -r sudo rm -rf
 
-print_status "✅ Auto-deployment completed successfully!"
 echo ""
-echo "📊 Deployment Status:"
-echo "   Backend Status: $(pm2 jlist | jq -r '.[] | select(.name=="lms-backend") | .pm2_env.status')"
-echo "   Nginx Status: $(systemctl is-active nginx)"
-echo "   MongoDB Status: $(systemctl is-active mongod)"
+echo "✅ Auto-deployment completed successfully!"
+echo "📊 Service Status:"
+pm2 status
 echo ""
-print_status "🌐 Application is running at: http://$SERVER_IP"
+echo "🌐 Application is running at: http://16.171.146.116"
+echo ""
