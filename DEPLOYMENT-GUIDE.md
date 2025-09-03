@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Ubuntu 20.04+ EC2 instance
-- Server IP: 16.171.146.116
+- Server IP: 56.228.33.9
 - SSH access to the server
 - Root or sudo access
 
@@ -28,13 +28,13 @@ Upload your cleaned project to the EC2 instance:
 
 ```bash
 # From your local machine
-scp -r -i your-key.pem ./LMS-TRIAL ubuntu@16.171.146.116:/home/ubuntu/
+scp -r -i your-key.pem ./LMS-TRIAL ubuntu@56.228.33.9:/home/ubuntu/
 ```
 
 ### 3. Connect to Your EC2 Instance
 
 ```bash
-ssh -i your-key.pem ubuntu@16.171.146.116
+ssh -i your-key.pem ubuntu@56.228.33.9
 ```
 
 ### 4. Run the Deployment Script
@@ -88,8 +88,8 @@ curl http://localhost
 
 ## 🌐 Access Your Application
 
-- **Frontend**: http://16.171.146.116
-- **Backend API**: http://16.171.146.116/api
+- **Frontend**: http://56.228.33.9
+- **Backend API**: http://56.228.33.9/api
 
 ## 🔧 Post-Deployment Configuration
 
@@ -115,7 +115,7 @@ sudo ufw --force enable
 sudo apt install certbot python3-certbot-nginx
 
 # Get SSL certificate (replace with your domain if you have one)
-sudo certbot --nginx -d 16.171.146.116
+sudo certbot --nginx -d 56.228.33.9
 ```
 
 ## 🔄 Future Updates - Auto Deploy
@@ -195,8 +195,8 @@ mongosh                       # Connect to MongoDB shell
    ```
 
 ### Health Check URLs
-- Backend: `http://16.171.146.116/api/health`
-- Frontend: `http://16.171.146.116`
+- Backend: `http://56.228.33.9/api/health`
+- Frontend: `http://56.228.33.9`
 
 ## 📝 Environment Variables
 
@@ -207,7 +207,7 @@ Make sure these are set correctly in `ecosystem.config.json`:
 - `MONGODB_URI=mongodb://localhost:27017/lms-trial`
 - `JWT_SECRET=your-secure-secret`
 - `JWT_EXPIRE=30d`
-- `CORS_ORIGIN=http://16.171.146.116`
+- `CORS_ORIGIN=http://56.228.33.9`
 
 ## 🔒 Security Considerations
 

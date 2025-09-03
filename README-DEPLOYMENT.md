@@ -1,4 +1,17 @@
-# 🎯 LMS-TRIAL - Lead Management System
+# 🎯 LMS-TRIAL - Lea## 🚀 Quick Deployment to EC2
+
+### Prerequisites
+- Ubuntu 20.04+ EC2 instance (IP: 56.228.33.9)
+- SSH access with sudo privileges
+
+### Step 1: Upload Project
+```bash
+scp -r -i your-key.pem ./LMS-TRIAL ubuntu@56.228.33.9:/home/ubuntu/
+```
+
+### Step 2: Connect to Server
+```bash
+ssh -i your-key.pem ubuntu@56.228.33.9ystem
 
 A comprehensive MERN stack Lead Management System with role-based access control, real-time notifications, and duplicate lead detection.
 
@@ -21,17 +34,17 @@ A comprehensive MERN stack Lead Management System with role-based access control
 ## 🚀 Quick Deployment to EC2
 
 ### Prerequisites
-- Ubuntu 20.04+ EC2 instance (IP: 16.171.146.116)
+- Ubuntu 20.04+ EC2 instance (IP: 56.228.33.9)
 - SSH access with sudo privileges
 
 ### Step 1: Upload Project
 ```bash
-scp -r -i your-key.pem ./LMS-TRIAL ubuntu@16.171.146.116:/home/ubuntu/
+scp -r -i your-key.pem ./LMS-TRIAL ubuntu@56.228.33.9:/home/ubuntu/
 ```
 
 ### Step 2: Deploy
 ```bash
-ssh -i your-key.pem ubuntu@16.171.146.116
+ssh -i your-key.pem ubuntu@56.228.33.9
 sudo mv /home/ubuntu/LMS-TRIAL /var/www/lms-trial
 sudo chown -R ubuntu:ubuntu /var/www/lms-trial
 cd /var/www/lms-trial
@@ -47,8 +60,8 @@ chmod +x verify-deployment.sh
 
 ## 🌐 Access Your Application
 
-- **Frontend**: http://16.171.146.116
-- **Backend API**: http://16.171.146.116/api
+- **Frontend**: http://56.228.33.9
+- **Backend API**: http://56.228.33.9/api
 
 ## 🔄 Future Updates
 

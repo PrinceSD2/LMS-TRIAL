@@ -1,6 +1,6 @@
 # LMS Application - EC2 Deployment Quick Start Guide
 
-## 🚀 Deployment on EC2 Instance (16.171.146.116)
+## 🚀 Deployment on EC2 Instance (56.228.33.9)
 
 ### Prerequisites
 - Ubuntu 20.04+ EC2 instance
@@ -13,7 +13,7 @@
 git clone <your-repository-url> /home/ubuntu/LMS-TRIAL
 
 # Option 2: Upload via SCP
-scp -r ./LMS-TRIAL ubuntu@16.171.146.116:/home/ubuntu/
+scp -r ./LMS-TRIAL ubuntu@56.228.33.9:/home/ubuntu/
 
 # Option 3: Upload via SFTP client (WinSCP, FileZilla)
 ```
@@ -21,7 +21,7 @@ scp -r ./LMS-TRIAL ubuntu@16.171.146.116:/home/ubuntu/
 ### Step 2: Connect to EC2 and Deploy
 ```bash
 # SSH into your EC2 instance
-ssh ubuntu@16.171.146.116
+ssh ubuntu@56.228.33.9
 
 # Navigate to project directory
 cd /home/ubuntu/LMS-TRIAL
@@ -50,8 +50,8 @@ sudo systemctl status mongod
 ```
 
 ### Step 4: Access Application
-- **Frontend**: http://16.171.146.116
-- **Backend API**: http://16.171.146.116:5000
+- **Frontend**: http://56.228.33.9
+- **Backend API**: http://56.228.33.9:5000
 
 ### Default Login Credentials
 ⚠️ **CHANGE THESE IMMEDIATELY AFTER FIRST LOGIN**
@@ -200,4 +200,4 @@ For deployment issues or questions:
 
 ---
 
-**Last Updated**: Deployment configuration for EC2 IP 16.171.146.116
+**Last Updated**: Deployment configuration for EC2 IP 56.228.33.9

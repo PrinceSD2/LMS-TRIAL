@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# LMS-TRIAL Deployment Script for EC2 (16.171.146.116)
+# LMS-TRIAL Deployment Script for EC2 (56.228.33.9)
 set -e
 
 echo "🚀 Starting LMS-TRIAL deployment..."
 
 # Check if running on correct server
-EXPECTED_IP="16.171.146.116"
+EXPECTED_IP="56.228.33.9"
 CURRENT_IP=$(curl -s ifconfig.me || echo "unknown")
 
 echo "Current server IP: $CURRENT_IP"
@@ -86,7 +86,7 @@ sudo apt install -y nginx
 sudo tee /etc/nginx/sites-available/lms-trial << EOF
 server {
     listen 80;
-    server_name 16.171.146.116;
+    server_name 56.228.33.9;
 
     # Serve React app
     location / {
@@ -139,8 +139,8 @@ sudo ufw --force enable
 
 echo "✅ LMS Application deployment completed successfully!"
 echo "🌐 Your application is accessible at:"
-echo "   Frontend: http://16.171.146.116"
-echo "   Backend API: http://16.171.146.116:5000"
+echo "   Frontend: http://56.228.33.9"
+echo "   Backend API: http://56.228.33.9:5000"
 echo ""
 echo "📊 Monitor your application:"
 echo "   pm2 status          # Check PM2 processes"

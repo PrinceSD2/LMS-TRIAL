@@ -710,6 +710,11 @@ router.put('/:id', protect, updateLeadValidation, handleValidationErrors, async 
       }
     });
 
+    // Override lastUpdatedBy with the actual authenticated user's name
+    if (req.body.lastUpdatedBy !== undefined) {
+      lead.lastUpdatedBy = req.user.name;
+    }
+
     // Mark as admin processed if updated by admin or superadmin
     if (['admin', 'superadmin'].includes(req.user.role)) {
       lead.adminProcessed = true;

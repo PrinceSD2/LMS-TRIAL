@@ -45,5 +45,5 @@ sudo tail -n 5 /var/log/nginx/error.log 2>/dev/null || echo "No nginx errors fou
 
 echo -e "\n✅ Health check completed!"
 echo "📋 If all services are running, your application should be accessible at:"
-echo "   🌐 Frontend: http://16.171.146.116"
-echo "   🔌 API: http://16.171.146.116:5000"
+echo "   🌐 Frontend: http://56.228.33.9"
+echo "   🔌 API: http://56.228.33.9:5000"

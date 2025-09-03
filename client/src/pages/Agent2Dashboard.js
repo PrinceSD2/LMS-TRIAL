@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSocket } from '../contexts/SocketContext';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   FileText,
   Clock,
@@ -64,6 +65,7 @@ const CREDIT_SCORE_RANGES = [
 
 const Agent2Dashboard = () => {
   const { socket } = useSocket();
+  const { user } = useAuth();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -218,7 +220,7 @@ const Agent2Dashboard = () => {
       if (updateData.leadProgressStatus && updateData.leadProgressStatus !== '') {
         cleanUpdateData.leadProgressStatus = updateData.leadProgressStatus;
         // Add metadata for admin tracking
-        cleanUpdateData.lastUpdatedBy = 'Agent2';
+        cleanUpdateData.lastUpdatedBy = user?.name || 'Agent2';
         cleanUpdateData.lastUpdatedAt = new Date().toISOString();
         cleanUpdateData.agent2LastAction = updateData.leadProgressStatus;
       }
@@ -455,7 +457,7 @@ const Agent2Dashboard = () => {
       }
 
       // Add tracking info
-      cleanUpdateData.lastUpdatedBy = 'Agent2';
+      cleanUpdateData.lastUpdatedBy = user?.name || 'Agent2';
       cleanUpdateData.lastUpdatedAt = new Date().toISOString();
 
       console.log('Sending comprehensive update:', cleanUpdateData);
