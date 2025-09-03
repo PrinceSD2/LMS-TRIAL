@@ -17,6 +17,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:prod": "NODE_ENV=production react-scripts build",
+    "serve": "serve -s build -l 3000",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

@@ -24,8 +24,15 @@ const server = http.createServer(app);
 const dev = process.env.NODE_ENV !== 'production';
 const io = socketIo(server, {
   cors: {
-    origin: dev ? true : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
-    credentials: true
+    origin: dev ? true : [
+      `http://16.171.146.116`,
+      `http://16.171.146.116:3000`,
+      `http://16.171.146.116:5000`,
+      `http://16.171.146.116:80`,
+      `http://16.171.146.116:443`
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
@@ -46,8 +53,16 @@ app.use(helmet({
   },
 }));
 app.use(cors({
-  origin: dev ? ['http://localhost:3000', 'http://127.0.0.1:3000'] : [`http://16.170.227.75:3000`, `http://16.170.227.75:5000`],
-  credentials: true
+  origin: dev ? ['http://localhost:3000', 'http://127.0.0.1:3000'] : [
+    `http://16.171.146.116`,
+    `http://16.171.146.116:3000`,
+    `http://16.171.146.116:5000`,
+    `http://16.171.146.116:80`,
+    `http://16.171.146.116:443`
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Rate limiting
